@@ -32,8 +32,21 @@ self.onmessage = async (e: MessageEvent) => {
             self.postMessage({ type: 'MAP_SUCCESS', mappedData });
             // Cleanup after mapping as we probably don't need it anymore
             internalRawData = null;
-        } else if (type === 'PROCESS_ANALYSIS') {
-            const result = processAnalysis(hrBase, dailyVisits, strictMode);
+        } else if (type === 'PROCESS_ANALYSIS' || type === 'PARSE_AND_PROCESS_VISITS') {
+            let dataToProcess = dailyVisits;
+
+            if (type === 'PARSE_AND_PROCESS_VISITS') {
+                dataToProcess = await parseExcelInWorker(file, (msg) => {
+                    self.postMessage({ type: 'PROGRESS', message: msg });
+                });
+            }
+
+            if (!dataToProcess) {
+                throw new Error("Missing data for analysis");
+            }
+
+            self.postMessage({ type: 'PROGRESS', message: "Calcul des statistiques..." });
+            const result = processAnalysis(hrBase, dataToProcess, strictMode);
             self.postMessage({ type: 'ANALYSIS_SUCCESS', result });
         }
     } catch (error: any) {

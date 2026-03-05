@@ -13,7 +13,7 @@ const COLORS = ['#FF7900', '#0F172A', '#64748B', '#94A3B8', '#E2E8F0', '#50BE87'
 interface DashboardProps {
     data: AnalysisResult | null;
     activeBase: HRBase | null;
-    visitData: VisitRecord[] | null;
+    visitData?: VisitRecord[] | null;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ data, activeBase, visitData }) => {

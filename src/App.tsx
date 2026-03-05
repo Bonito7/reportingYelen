@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Database, BarChart3, HelpCircle } from 'lucide-react';
 import { UploadSection } from './components/UploadSection';
 import { Dashboard } from './components/Dashboard';
-import type { HRMember, VisitRecord, HRBase } from './utils/excelProcessor';
+import type { HRMember, HRBase } from './utils/excelProcessor';
 import { api } from './services/api';
 import './index.css';
 
@@ -11,7 +11,6 @@ function App() {
   const [activeTab, setActiveTab] = useState<'upload' | 'dashboard'>('upload');
   const [hrBases, setHrBases] = useState<HRBase[]>([]);
   const [activeBaseId, setActiveBaseId] = useState<string | null>(null);
-  const [visitData, setVisitData] = useState<VisitRecord[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -20,9 +19,9 @@ function App() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [loadedBases, loadedVisitData, loadedActiveId] = await Promise.all([
+        const [loadedBases, loadedAnalysis, loadedActiveId] = await Promise.all([
           api.getAllHRBases(),
-          api.getState('visitData'),
+          api.getState('analysis'),
           api.getState('activeBaseId')
         ]);
 
@@ -36,8 +35,9 @@ function App() {
           setActiveBaseId(loadedBases[0].id);
         }
 
-        if (loadedVisitData) {
-          setVisitData(loadedVisitData as VisitRecord[]);
+        if (loadedAnalysis) {
+          setAnalysis(loadedAnalysis);
+          setActiveTab('dashboard');
         }
       } catch (e) {
         console.error("Failed to load data from MongoDB:", e);
@@ -62,22 +62,16 @@ function App() {
     }
   }, [activeBaseId, isLoading]);
 
-  // Persistence: Save Visit Data
+  // Persistence: Save Analysis Result
   useEffect(() => {
     if (!isLoading) {
-      if (visitData) {
-        // Still limit to 100k to avoid huge network transfers even with MongoDB
-        if (visitData.length < 100000) {
-          api.updateState('visitData', visitData).catch(console.error);
-        } else {
-          console.warn("Visit data too large for state persistence, skipping MongoDB save.");
-          api.clearState('visitData').catch(console.error);
-        }
+      if (analysis) {
+        api.updateState('analysis', analysis).catch(console.error);
       } else {
-        api.clearState('visitData').catch(console.error);
+        api.clearState('analysis').catch(console.error);
       }
     }
-  }, [visitData, isLoading]);
+  }, [analysis, isLoading]);
 
 
   const activeBase = useMemo(() =>
@@ -97,46 +91,7 @@ function App() {
 
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
-  // Async Analysis using Web Worker
-  useEffect(() => {
-    if (hrData && visitData) {
-      setIsProcessing(true);
-      setAnalysisError(null);
-
-      const worker = new Worker(new URL('./utils/processor.worker.ts', import.meta.url), { type: 'module' });
-
-      worker.onmessage = (e) => {
-        if (e.data.type === 'ANALYSIS_SUCCESS') {
-          setAnalysis(e.data.result);
-          setIsProcessing(false);
-          worker.terminate();
-        } else if (e.data.type === 'ERROR') {
-          setAnalysisError(e.data.error);
-          setIsProcessing(false);
-          worker.terminate();
-        }
-      };
-
-      worker.onerror = (err) => {
-        console.error("Worker Error:", err);
-        setAnalysisError("Impossible de démarrer le moteur d'analyse. Erreur: " + err.message);
-        setIsProcessing(false);
-        worker.terminate();
-      };
-
-      worker.postMessage({
-        type: 'PROCESS_ANALYSIS',
-        hrBase: hrData,
-        dailyVisits: visitData,
-        strictMode: true
-      });
-
-      return () => worker.terminate();
-    } else {
-      setAnalysis(null);
-      setIsProcessing(false);
-    }
-  }, [hrData, visitData]);
+  // Analysis is now driven by UploadSection directly for memory efficiency
 
   const handleHRUpload = (data: HRMember[], baseName: string, displayFields: { key: string; label: string }[]) => {
     const newBase: HRBase = {
@@ -162,43 +117,9 @@ function App() {
   };
 
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleVisitUpload = (data: Record<string, any>[]) => {
-    const mapped: VisitRecord[] = data.map(row => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const normalizedRow: any = {};
-      Object.keys(row).forEach(key => {
-        normalizedRow[key.toLowerCase().trim()] = row[key];
-      });
-
-      const rawDate = normalizedRow.date || normalizedRow['date de visite'] || normalizedRow['horodatage'] || row.Date;
-      const formattedDate = rawDate instanceof Date ? rawDate.toISOString() : String(rawDate || '');
-
-      return {
-        cuid: normalizedRow.login ||
-          normalizedRow.cuid ||
-          normalizedRow['code utilisateur'] ||
-          normalizedRow.identifiant ||
-          normalizedRow['nom d\'utilisateur'] ||
-          normalizedRow['user id'] ||
-          normalizedRow['matricule'] ||
-          row.Login || row.CUID,
-        date: formattedDate,
-        page: normalizedRow.page || normalizedRow['page consultée'] || row.Page,
-        url: normalizedRow['url (actiondetails 0)'] || row['url (actionDetails 0)'] || normalizedRow.url,
-        pageTitle: normalizedRow['pagetitle (actiondetails 0)'] || row['pageTitle (actionDetails 0)'] || normalizedRow.pagetitle || normalizedRow.title
-      };
-    }).filter(v => v.cuid);
-
-    console.log(`Mapped ${mapped.length} visits from ${data.length} raw rows`);
-    if (mapped.length === 0 && data.length > 0) {
-      alert("⚠️ Aucune donnée n'a été chargée. Le système n'a pas trouvé de colonne 'Login' ou 'CUID' dans votre fichier. Vérifiez les noms des colonnes.");
-    }
-
-    setVisitData(mapped);
-    if (hrData) {
-      setActiveTab('dashboard');
-    }
+  const handleAnalysisSuccess = (result: any) => {
+    setAnalysis(result);
+    setActiveTab('dashboard');
   };
 
   if (isLoading) {
@@ -298,7 +219,7 @@ function App() {
                 <h2 className="text-xl font-bold mb-2">Erreur d'Analyse</h2>
                 <p className="text-text-secondary mb-8 font-medium">{analysisError}</p>
                 <button
-                  onClick={() => { setAnalysisError(null); setVisitData(null); }}
+                  onClick={() => { setAnalysisError(null); }}
                   className="btn-primary w-full"
                 >
                   Retourner aux sources
@@ -310,13 +231,14 @@ function App() {
           <div className="flex flex-col gap-10">
             <UploadSection
               onHRUpload={handleHRUpload}
-              onVisitUpload={handleVisitUpload}
+              onAnalysisSuccess={handleAnalysisSuccess}
               hrBases={hrBases}
               activeBaseId={activeBaseId}
               onSelectBase={setActiveBaseId}
               onDeleteBase={deleteBase}
               onUpdateBase={updateBase}
-              hasVisits={!!visitData}
+              hrData={hrData}
+              setIsProcessing={setIsProcessing}
             />
 
             {hrData && (
@@ -385,7 +307,7 @@ function App() {
             )}
           </div>
         ) : (
-          analysis && <Dashboard data={analysis} activeBase={activeBase} visitData={visitData} />
+          analysis && <Dashboard data={analysis} activeBase={activeBase} />
         )}
       </main>
     </div>

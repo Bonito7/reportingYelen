@@ -1,27 +1,29 @@
 import React, { useRef, useState } from 'react';
-import { Upload, CheckCircle2, Trash2, PlusCircle, LayoutGrid, RefreshCcw, Database } from 'lucide-react';
+import { Upload, Trash2, PlusCircle, LayoutGrid, RefreshCcw, Database } from 'lucide-react';
 import type { HRBase, HRMember } from '../utils/excelProcessor';
 
 interface UploadSectionProps {
     onHRUpload: (data: any[], name: string, displayFields: { key: string; label: string }[]) => void;
-    onVisitUpload: (data: any[]) => void;
+    onAnalysisSuccess: (result: any) => void;
     hrBases: HRBase[];
     activeBaseId: string | null;
     onSelectBase: (id: string) => void;
     onDeleteBase: (id: string) => void;
     onUpdateBase: (id: string, data: HRMember[], displayFields: { key: string; label: string }[]) => void;
-    hasVisits: boolean;
+    hrData: HRMember[] | null;
+    setIsProcessing: (loading: boolean) => void;
 }
 
 export const UploadSection: React.FC<UploadSectionProps> = ({
     onHRUpload,
-    onVisitUpload,
+    onAnalysisSuccess,
     hrBases,
     activeBaseId,
     onSelectBase,
     onDeleteBase,
     onUpdateBase,
-    hasVisits
+    hrData,
+    setIsProcessing
 }) => {
     const hrInputRef = useRef<HTMLInputElement>(null);
     const visitInputRef = useRef<HTMLInputElement>(null);
@@ -109,6 +111,49 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
         };
 
         worker.postMessage({ type: 'PARSE_EXCEL', file });
+    };
+
+    const processVisitsFile = async (file: File) => {
+        if (!activeBaseId || !hrData) {
+            alert("Veuillez sélectionner une base RH avant d'importer les visites.");
+            return;
+        }
+
+        setIsParsing(true);
+        setIsProcessing(true);
+        setUploadProgress("Initialisation...");
+
+        const worker = new Worker(new URL('../utils/processor.worker.ts', import.meta.url), { type: 'module' });
+
+        worker.onmessage = (ev) => {
+            if (ev.data.type === 'ANALYSIS_SUCCESS') {
+                onAnalysisSuccess(ev.data.result);
+                setIsParsing(false);
+                setIsProcessing(false);
+                worker.terminate();
+            } else if (ev.data.type === 'PROGRESS') {
+                setUploadProgress(ev.data.message);
+            } else if (ev.data.type === 'ERROR') {
+                alert("Erreur lors de l'analyse : " + ev.data.error);
+                setIsParsing(false);
+                setIsProcessing(false);
+                worker.terminate();
+            }
+        };
+
+        worker.onerror = (err) => {
+            console.error("Worker Error:", err);
+            setIsParsing(false);
+            alert("Erreur lors du chargement de l'assistant d'analyse.");
+            worker.terminate();
+        };
+
+        worker.postMessage({
+            type: 'PARSE_AND_PROCESS_VISITS',
+            file,
+            hrBase: hrData,
+            strictMode: true
+        });
     };
 
     const confirmFieldSelection = () => {
@@ -295,34 +340,12 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
                         setIsDraggingVisits(false);
                         const file = e.dataTransfer.files?.[0];
                         if (file) {
-                            setIsParsing(true);
-                            const worker = new Worker(new URL('../utils/processor.worker.ts', import.meta.url), { type: 'module' });
-                            worker.onmessage = (ev) => {
-                                if (ev.data.type === 'PARSE_SUCCESS') {
-                                    onVisitUpload(ev.data.data);
-                                    setIsParsing(false);
-                                    worker.terminate();
-                                } else if (ev.data.type === 'PROGRESS') {
-                                    setUploadProgress(ev.data.message);
-                                } else if (ev.data.type === 'ERROR') {
-                                    alert("Erreur lors de la lecture du fichier.");
-                                    setIsParsing(false);
-                                    worker.terminate();
-                                }
-                            };
-                            worker.onerror = (err) => {
-                                console.error("Worker Error:", err);
-                                setIsParsing(false);
-                                alert("Erreur lors du chargement de l'assistant d'importation.");
-                                worker.terminate();
-                            };
-                            setUploadProgress("Initialisation...");
-                            worker.postMessage({ type: 'PARSE_EXCEL', file });
+                            processVisitsFile(file);
                         }
                     }}
                     className={`relative min-h-[400px] flex flex-col items-center justify-center border-2 border-dashed rounded-[2rem] transition-all cursor-pointer p-16 overflow-hidden group
                         ${isDraggingVisits ? 'border-orange-primary bg-orange-primary/5 shadow-2xl scale-[1.01]' :
-                            hasVisits ? 'border-orange-primary/30 bg-orange-primary/10' : 'border-[#f1f5f9] bg-white hover:border-orange-primary/20 hover:bg-slate-50/30 shadow-sm'}`}
+                            'border-[#f1f5f9] bg-white hover:border-orange-primary/20 hover:bg-slate-50/30 shadow-sm'}`}
                 >
                     <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:32px_32px] opacity-20 pointer-events-none" />
 
@@ -334,63 +357,29 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
                         onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                                setIsParsing(true);
-                                const worker = new Worker(new URL('../utils/processor.worker.ts', import.meta.url), { type: 'module' });
-                                worker.onmessage = (ev) => {
-                                    if (ev.data.type === 'PARSE_SUCCESS') {
-                                        onVisitUpload(ev.data.data);
-                                        setIsParsing(false);
-                                        worker.terminate();
-                                    } else if (ev.data.type === 'PROGRESS') {
-                                        setUploadProgress(ev.data.message);
-                                    } else if (ev.data.type === 'ERROR') {
-                                        alert("Erreur lors de la lecture du fichier.");
-                                        setIsParsing(false);
-                                        worker.terminate();
-                                    }
-                                };
-                                worker.onerror = (err) => {
-                                    console.error("Worker Error:", err);
-                                    setIsParsing(false);
-                                    alert("Erreur lors du chargement de l'assistant d'importation.");
-                                    worker.terminate();
-                                };
-                                setUploadProgress("Initialisation...");
-                                worker.postMessage({ type: 'PARSE_EXCEL', file });
+                                processVisitsFile(file);
                             }
                         }}
                     />
 
                     <div className="relative z-10 flex flex-col items-center text-center">
-                        {hasVisits ? (
-                            <div className="w-20 h-20 bg-orange-primary text-white rounded-xl flex items-center justify-center shadow-sm mb-6">
-                                <CheckCircle2 size={36} />
-                            </div>
-                        ) : (
-                            <div className="w-20 h-20 bg-orange-primary/10 text-orange-primary rounded-xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform shadow-sm">
-                                <Upload size={42} />
-                            </div>
-                        )}
+                        <div className="w-20 h-20 bg-orange-primary/10 text-orange-primary rounded-xl flex items-center justify-center mb-6 group-hover:scale-105 transition-transform shadow-sm">
+                            <Upload size={42} />
+                        </div>
 
                         <h3 className="text-3xl font-semibold text-text-primary tracking-tight mb-3">Rapport Quotidien</h3>
                         <p className="text-text-secondary max-w-sm mb-10 leading-relaxed font-normal">
                             Glissez-déposez vos fichiers .xlsx ou cliquez pour importer vos logs de visite.
                         </p>
 
-                        {!activeBaseId && !hasVisits && (
+                        {!activeBaseId && (
                             <div className="px-6 py-2.5 bg-rose-50 border border-rose-100 rounded-full flex items-center gap-2.5 text-rose-500 text-[10px] font-bold uppercase tracking-widest shadow-sm">
                                 <Database size={14} />
                                 Sélectionnez d'abord une base RH
                             </div>
                         )}
 
-                        {hasVisits && (
-                            <div className="px-8 py-3 bg-orange-primary text-white rounded-full flex items-center gap-2.5 shadow-lg shadow-orange-primary/20">
-                                <span className="text-xs font-bold uppercase tracking-widest">Rapport Chargé avec succès</span>
-                            </div>
-                        )}
-
-                        {!hasVisits && activeBaseId && (
+                        {activeBaseId && (
                             <div className="px-6 py-2.5 bg-slate-50 border border-[#f1f5f9] rounded-full text-text-muted text-[10px] font-bold uppercase tracking-widest">
                                 Format compatible .XLSX
                             </div>

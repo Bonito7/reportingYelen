@@ -91,7 +91,12 @@ export const api = {
         const res = await fetch(`${API_URL}/admin/clear-all`, {
             method: 'DELETE'
         });
-        if (!res.ok) throw new Error('Failed to clear data');
+
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.error || 'Erreur lors de la suppression des données');
+        }
+
         return res.json();
     }
 };

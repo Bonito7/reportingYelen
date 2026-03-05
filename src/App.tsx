@@ -122,10 +122,10 @@ function App() {
         setIsProcessing(true);
         await api.clearAllData();
         window.location.reload();
-      } catch (err) {
-        alert("Erreur lors de la suppression.");
+      } catch (err: any) {
+        alert("Erreur lors de la suppression : " + (err.message || "Erreur inconnue"));
       } finally {
-        setIsProcessing(true);
+        setIsProcessing(false);
       }
     }
   };

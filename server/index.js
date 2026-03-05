@@ -27,7 +27,10 @@ app.use(express.json({ limit: '100mb' }));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('✅ Connected to MongoDB Atlas'))
+    .then(() => {
+        const dbName = mongoose.connection.name;
+        console.log(`✅ Connected to MongoDB Atlas - Database: ${dbName}`);
+    })
     .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Routes
@@ -35,14 +38,23 @@ mongoose.connect(process.env.MONGODB_URI)
 // ADMIN: Clear All Data
 app.delete('/api/admin/clear-all', async (req, res) => {
     console.log('⚠️ Requete de suppression totale reçue');
+
+    if (mongoose.connection.readyState !== 1) {
+        console.error('❌ Erreur: Base de données non connectée');
+        return res.status(500).json({ error: 'La base de données n\'est pas connectée actuellement.' });
+    }
+
     try {
-        await HRBase.deleteMany({});
-        await VisitData.deleteMany({});
-        console.log('🗑️ Toutes les données ont été supprimées');
-        res.json({ message: 'All data cleared successfully' });
+        const hrResult = await HRBase.deleteMany({});
+        const visitResult = await VisitData.deleteMany({});
+        console.log(`🗑️ Suppression terminée. HR: ${hrResult.deletedCount}, States: ${visitResult.deletedCount}`);
+        res.json({
+            message: 'All data cleared successfully',
+            details: { hr: hrResult.deletedCount, states: visitResult.deletedCount }
+        });
     } catch (err) {
         console.error('❌ Erreur lors de la suppression totale:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: `Erreur serveur lors de la suppression: ${err.message}` });
     }
 });
 

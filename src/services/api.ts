@@ -1,4 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://reportingyelenserver.onrender.com/api';
+// Fallback local: 'http://localhost:5001/api'
 
 export const api = {
     // HR Bases

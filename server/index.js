@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const morgan = require('morgan');
 const HRBase = require('./models/HRBase');
 const VisitData = require('./models/VisitData');
 
@@ -10,7 +11,8 @@ const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Allow large payloads for Excel data
+app.use(morgan('dev'));
+app.use(express.json({ limit: '100mb' })); // Increased limit to 100mb
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
@@ -31,16 +33,24 @@ app.get('/api/hr-bases', async (req, res) => {
 
 // Save or Update all HR Bases (Sync)
 app.post('/api/hr-bases/sync', async (req, res) => {
+    console.log(`📡 Requete de sync reçue : ${req.body.bases?.length || 0} bases`);
     try {
         const { bases } = req.body;
-        // Simple strategy: clear and replace for full sync from frontend state
-        // For more advanced use, we could do individual upserts
+        if (!bases) {
+            console.error('❌ Erreur : Pas de données (bases) dans le corps de la requête');
+            return res.status(400).json({ error: 'No bases provided in request body' });
+        }
+
         await HRBase.deleteMany({});
-        if (bases && bases.length > 0) {
+        if (bases.length > 0) {
             await HRBase.insertMany(bases);
+            console.log('✅ Bases synchronisées avec succès');
+        } else {
+            console.log('ℹ️ Aucune base à synchroniser (liste vide)');
         }
         res.json({ message: 'Sync successful' });
     } catch (err) {
+        console.error('❌ Erreur de synchronisation:', err);
         res.status(500).json({ error: err.message });
     }
 });

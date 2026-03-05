@@ -32,6 +32,20 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // Routes
 
+// ADMIN: Clear All Data
+app.delete('/api/admin/clear-all', async (req, res) => {
+    console.log('⚠️ Requete de suppression totale reçue');
+    try {
+        await HRBase.deleteMany({});
+        await VisitData.deleteMany({});
+        console.log('🗑️ Toutes les données ont été supprimées');
+        res.json({ message: 'All data cleared successfully' });
+    } catch (err) {
+        console.error('❌ Erreur lors de la suppression totale:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Process Visites (Server Side Analysis)
 app.post('/api/process-visites', upload.single('file'), async (req, res) => {
     console.log('📡 Requete d\'analyse reçue');

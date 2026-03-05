@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Database, BarChart3, HelpCircle } from 'lucide-react';
+import { Database, BarChart3, HelpCircle, Trash2 } from 'lucide-react';
 import { UploadSection } from './components/UploadSection';
 import { Dashboard } from './components/Dashboard';
 import type { HRBase } from './utils/excelProcessor';
@@ -11,6 +11,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'upload' | 'dashboard'>('upload');
   const [hrBases, setHrBases] = useState<HRBase[]>([]);
   const [activeBaseId, setActiveBaseId] = useState<string | null>(null);
+  const [hrSample, setHrSample] = useState<any[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -55,10 +56,20 @@ function App() {
     }
   }, [hrBases, isLoading]);
 
-  // Persistence: Save Active ID
+  // Persistence: Save Active ID & Fetch Sample
   useEffect(() => {
     if (!isLoading && activeBaseId) {
       api.updateState('activeBaseId', activeBaseId).catch(console.error);
+
+      // Fetch sample for preview
+      api.getHRBaseSample(activeBaseId)
+        .then(setHrSample)
+        .catch(err => {
+          console.error("Failed to fetch HR sample:", err);
+          setHrSample(null);
+        });
+    } else if (!activeBaseId) {
+      setHrSample(null);
     }
   }, [activeBaseId, isLoading]);
 
@@ -78,7 +89,7 @@ function App() {
     hrBases.find(b => b.id === activeBaseId) || null,
     [hrBases, activeBaseId]);
 
-  const hrData = activeBase?.data || null;
+  const hrData = hrSample;
 
   useEffect(() => {
     const handleSwitchTab = (e: Event) => {
@@ -103,6 +114,20 @@ function App() {
   const handleAnalysisSuccess = (result: any) => {
     setAnalysis(result);
     setActiveTab('dashboard');
+  };
+
+  const handleClearAll = async () => {
+    if (confirm("🚨 ATTENTION : Voulez-vous supprimer TOUTES les données (Bases RH et Analyses) ? Cette action est irréversible.")) {
+      try {
+        setIsProcessing(true);
+        await api.clearAllData();
+        window.location.reload();
+      } catch (err) {
+        alert("Erreur lors de la suppression.");
+      } finally {
+        setIsProcessing(true);
+      }
+    }
   };
 
   if (isLoading) {
@@ -185,8 +210,16 @@ function App() {
           </div>
 
           <div className="flex items-center gap-4">
+            <button
+              onClick={handleClearAll}
+              className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 border border-rose-100 text-rose-500 rounded-lg hover:bg-rose-100 transition-colors text-xs font-bold uppercase tracking-wider shadow-sm"
+              title="Vider toute la base de données"
+            >
+              <Trash2 size={14} />
+              Vider DB
+            </button>
             <div className="flex items-center gap-3 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-sm">
-              <div className={`w-2 h-2 rounded-full ${hrData ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+              <div className={`w-2 h-2 rounded-full ${hrSample ? 'bg-emerald-500' : 'bg-rose-500'}`} />
               <span className="text-xs font-medium text-text-secondary">Status Base RH</span>
             </div>
           </div>
@@ -230,7 +263,7 @@ function App() {
                     <p className="text-text-secondary text-sm mt-1">Vérification de l'intégrité des colonnes importées</p>
                   </div>
                   <span className="bg-slate-100 text-text-secondary px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200">
-                    {hrData.length} ENTRÉES
+                    {hrSample.length} ENTRÉES (APERÇU)
                   </span>
                 </div>
 
@@ -280,7 +313,7 @@ function App() {
                 {hrData.length > 10 && (
                   <div className="mt-8 pt-8 border-t-2 border-brand-border text-center">
                     <p className="text-text-secondary text-[10px] font-bold uppercase tracking-wider">
-                      Affichage partiel des <span className="text-text-primary">{hrData.length}</span> entrées détectées
+                      Affichage partiel des <span className="text-text-primary">10 premières</span> entrées sur le serveur
                     </p>
                   </div>
                 )}

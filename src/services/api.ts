@@ -85,5 +85,13 @@ export const api = {
         const res = await fetch(`${API_URL}/hr-bases/${id}/sample`);
         if (!res.ok) throw new Error('Failed to fetch sample');
         return res.json();
+    },
+
+    clearAllData: async () => {
+        const res = await fetch(`${API_URL}/admin/clear-all`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('Failed to clear data');
+        return res.json();
     }
 };

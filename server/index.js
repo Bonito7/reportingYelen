@@ -3,16 +3,26 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
+const multer = require('multer');
+const XLSX = require('xlsx');
 const HRBase = require('./models/HRBase');
 const VisitData = require('./models/VisitData');
+const { processAnalysis } = require('./utils/processor');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Multer config
+const storage = multer.memoryStorage();
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+});
+
 // Middleware
 app.use(cors());
 app.use(morgan('dev'));
-app.use(express.json({ limit: '100mb' })); // Increased limit to 100mb
+app.use(express.json({ limit: '100mb' }));
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
@@ -20,6 +30,54 @@ mongoose.connect(process.env.MONGODB_URI)
     .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Routes
+
+// Process Visites (Server Side Analysis)
+app.post('/api/process-visites', upload.single('file'), async (req, res) => {
+    console.log('📡 Requete d\'analyse reçue');
+    try {
+        const { hrBaseId, strictMode } = req.body;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        if (!hrBaseId) {
+            return res.status(400).json({ error: 'HR Base ID is required' });
+        }
+
+        // 1. Fetch HR Base
+        const base = await HRBase.findById(hrBaseId);
+        if (!base) {
+            return res.status(404).json({ error: 'HR Base not found' });
+        }
+
+        console.log(`📦 Traitement pour la base: ${base.name} (${base.data.length} membres)`);
+
+        // 2. Parse Excel
+        const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // Optimisation parse
+        const dailyVisits = XLSX.utils.sheet_to_json(worksheet, {
+            defval: '',
+            raw: false,
+            dateNF: 'dd/mm/yyyy'
+        });
+
+        console.log(`📑 Fichier Excel parsé: ${dailyVisits.length} lignes`);
+
+        // 3. Process Analysis
+        const result = processAnalysis(base.data, dailyVisits, strictMode === 'true' || strictMode === true);
+
+        console.log('✅ Analyse terminée avec succès');
+        res.json(result);
+    } catch (err) {
+        console.error('❌ Erreur lors du traitement:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Get all HR Bases
 app.get('/api/hr-bases', async (req, res) => {

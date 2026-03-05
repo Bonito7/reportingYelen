@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Upload, Trash2, PlusCircle, LayoutGrid, RefreshCcw, Database } from 'lucide-react';
 import type { HRBase, HRMember } from '../utils/excelProcessor';
+import { api } from '../services/api';
 
 interface UploadSectionProps {
     onHRUpload: (data: any[], name: string, displayFields: { key: string; label: string }[]) => void;
@@ -121,39 +122,18 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
 
         setIsParsing(true);
         setIsProcessing(true);
-        setUploadProgress("Initialisation...");
+        setUploadProgress("Envoi au serveur pour analyse...");
 
-        const worker = new Worker(new URL('../utils/processor.worker.ts', import.meta.url), { type: 'module' });
-
-        worker.onmessage = (ev) => {
-            if (ev.data.type === 'ANALYSIS_SUCCESS') {
-                onAnalysisSuccess(ev.data.result);
-                setIsParsing(false);
-                setIsProcessing(false);
-                worker.terminate();
-            } else if (ev.data.type === 'PROGRESS') {
-                setUploadProgress(ev.data.message);
-            } else if (ev.data.type === 'ERROR') {
-                alert("Erreur lors de l'analyse : " + ev.data.error);
-                setIsParsing(false);
-                setIsProcessing(false);
-                worker.terminate();
-            }
-        };
-
-        worker.onerror = (err) => {
-            console.error("Worker Error:", err);
+        try {
+            const result = await api.analyzeVisites(file, activeBaseId, true);
+            onAnalysisSuccess(result);
+        } catch (err: any) {
+            console.error("Analysis Error:", err);
+            alert("Erreur lors de l'analyse : " + (err.message || "Erreur serveur"));
+        } finally {
             setIsParsing(false);
-            alert("Erreur lors du chargement de l'assistant d'analyse.");
-            worker.terminate();
-        };
-
-        worker.postMessage({
-            type: 'PARSE_AND_PROCESS_VISITS',
-            file,
-            hrBase: hrData,
-            strictMode: true
-        });
+            setIsProcessing(false);
+        }
     };
 
     const confirmFieldSelection = () => {

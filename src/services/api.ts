@@ -42,5 +42,24 @@ export const api = {
         });
         if (!res.ok) throw new Error('Failed to clear state');
         return res.json();
+    },
+
+    analyzeVisites: async (file: File, hrBaseId: string, strictMode: boolean = true) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('hrBaseId', hrBaseId);
+        formData.append('strictMode', String(strictMode));
+
+        const res = await fetch(`${API_URL}/process-visites`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.error || 'Erreur lors de l\'analyse serveur');
+        }
+
+        return res.json();
     }
 };

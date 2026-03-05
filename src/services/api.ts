@@ -61,5 +61,29 @@ export const api = {
         }
 
         return res.json();
+    },
+
+    uploadHRBase: async (file: File, name: string) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('name', name);
+
+        const res = await fetch(`${API_URL}/hr-bases/upload`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.error || 'Erreur lors de l\'upload HR');
+        }
+
+        return res.json();
+    },
+
+    getHRBaseSample: async (id: string) => {
+        const res = await fetch(`${API_URL}/hr-bases/${id}/sample`);
+        if (!res.ok) throw new Error('Failed to fetch sample');
+        return res.json();
     }
 };

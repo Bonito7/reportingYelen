@@ -7,7 +7,8 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const HRBase = require('./models/HRBase');
 const VisitData = require('./models/VisitData');
-const { processAnalysis } = require('./utils/processor');
+const crypto = require('crypto');
+const { processAnalysis, mapHRData } = require('./utils/processor');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -79,12 +80,69 @@ app.post('/api/process-visites', upload.single('file'), async (req, res) => {
     }
 });
 
-// Get all HR Bases
+// Get all HR Bases (Metadata Only)
 app.get('/api/hr-bases', async (req, res) => {
     try {
-        const bases = await HRBase.find().sort({ createdAt: -1 });
+        const bases = await HRBase.find().select('-data').sort({ createdAt: -1 });
         res.json(bases);
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get Sample Rows for Preview
+app.get('/api/hr-bases/:id/sample', async (req, res) => {
+    try {
+        const base = await HRBase.findById(req.params.id);
+        if (!base) return res.status(404).json({ error: 'Base not found' });
+        res.json(base.data.slice(0, 10));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Upload HR Base
+app.post('/api/hr-bases/upload', upload.single('file'), async (req, res) => {
+    console.log('📡 Requete d\'upload HR reçue');
+    try {
+        const { name } = req.body;
+        const file = req.file;
+
+        if (!file || !name) {
+            return res.status(400).json({ error: 'File and name are required' });
+        }
+
+        // 1. Parse Excel
+        const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rawData = XLSX.utils.sheet_to_json(worksheet);
+
+        if (rawData.length === 0) {
+            return res.status(400).json({ error: 'Le fichier Excel est vide' });
+        }
+
+        // 2. Identify fields
+        const keys = Object.keys(rawData[0]);
+        const displayFields = keys.slice(0, 6).map(k => ({ key: k, label: k }));
+
+        // 3. Map Data
+        const mappedData = mapHRData(rawData, keys);
+
+        // 4. Create Base
+        const newBase = new HRBase({
+            id: crypto.randomUUID(),
+            name: name,
+            data: mappedData,
+            displayFields: displayFields
+        });
+
+        await newBase.save();
+
+        console.log(`✅ Base RH "${name}" créée avec ${mappedData.length} membres`);
+        res.json({ message: 'Upload successful', baseId: newBase.id });
+    } catch (err) {
+        console.error('❌ Erreur lors de l\'upload HR:', err);
         res.status(500).json({ error: err.message });
     }
 });

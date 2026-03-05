@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Database, BarChart3, HelpCircle } from 'lucide-react';
 import { UploadSection } from './components/UploadSection';
 import { Dashboard } from './components/Dashboard';
-import type { HRMember, HRBase } from './utils/excelProcessor';
+import type { HRBase } from './utils/excelProcessor';
 import { api } from './services/api';
 import './index.css';
 
@@ -93,29 +93,12 @@ function App() {
 
   // Analysis is now driven by UploadSection directly for memory efficiency
 
-  const handleHRUpload = (data: HRMember[], baseName: string, displayFields: { key: string; label: string }[]) => {
-    const newBase: HRBase = {
-      id: crypto.randomUUID(),
-      name: baseName,
-      data: data,
-      displayFields: displayFields
-    };
-
-    setHrBases(prev => [...prev, newBase]);
-    setActiveBaseId(newBase.id);
-  };
-
   const deleteBase = (id: string) => {
     if (confirm("Voulez-vous supprimer cette base RH ?")) {
       setHrBases(prev => prev.filter(b => b.id !== id));
       if (activeBaseId === id) setActiveBaseId(null);
     }
   };
-
-  const updateBase = (id: string, data: HRMember[], displayFields: { key: string; label: string }[]) => {
-    setHrBases(prev => prev.map(b => b.id === id ? { ...b, data, displayFields } : b));
-  };
-
 
   const handleAnalysisSuccess = (result: any) => {
     setAnalysis(result);
@@ -230,14 +213,12 @@ function App() {
         ) : activeTab === 'upload' ? (
           <div className="flex flex-col gap-10">
             <UploadSection
-              onHRUpload={handleHRUpload}
               onAnalysisSuccess={handleAnalysisSuccess}
               hrBases={hrBases}
               activeBaseId={activeBaseId}
               onSelectBase={setActiveBaseId}
               onDeleteBase={deleteBase}
-              onUpdateBase={updateBase}
-              hrData={hrData}
+              hrData={null} // We don't need the massive member list here anymore
               setIsProcessing={setIsProcessing}
             />
 

@@ -124,6 +124,65 @@ const processAnalysis = (hrBase, dailyVisits, strictMode = true) => {
     };
 };
 
+const mapHRData = (rawData, selectedFields) => {
+    const result = [];
+
+    for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i];
+        const member = {};
+
+        const findVal = (potentialKeys) => {
+            const key = Object.keys(row).find(k =>
+                potentialKeys.includes(k.toLowerCase().trim())
+            );
+            return key ? row[key] : undefined;
+        };
+
+        // System mappings
+        member.cuid = row.Login || row.CUID || row['Code Utilisateur'] || row.Identifiant || findVal(['login', 'cuid', 'code utilisateur', 'identifiant']);
+        member.perimeter = row.Périmètre || row.Perimeter || row.Secteur || findVal(['périmètre', 'perimetre', 'perimeter', 'secteur']);
+
+        // Optional system fields
+        member.direction = row.Direction || row.DR || findVal(['direction', 'dr']);
+        member.department = row.Département || row.Dept || findVal(['département', 'departement', 'dept']);
+        member.service = row.Service || row.Serv || findVal(['service', 'serv']);
+
+        member.lastName = row.Nom || row.Surname || findVal(['nom', 'surname']);
+        member.firstName = row.Prénoms || row.Prenom || row.Firstname || findVal(['prénoms', 'prenom', 'firstname']);
+        member.name = row.Nom_Prenom || row.Fullname || findVal(['nom_prenom', 'fullname', 'nom et prénoms']);
+
+        member.jobTitle = row.Fonction || row.Poste || row.Job || findVal(['fonction', 'poste', 'job']);
+        member.supervisor = row['RA/Superviseur'] || row.Superviseur || row.Supervisor || row.RA || findVal(['ra/superviseur', 'superviseur', 'supervisor', 'ra']);
+
+        member.n1 = row['N+1'] || row.N1 || findVal(['n+1', 'n1']);
+        member.n2 = row['N+2'] || row.N2 || findVal(['n+2', 'n2']);
+        member.email = row['Adresse Mail'] || row.Email || row.Mail || findVal(['adresse mail', 'email', 'mail']);
+
+        // Selected dynamic fields
+        if (selectedFields && selectedFields.length > 0) {
+            selectedFields.forEach(field => {
+                if (row[field] !== undefined) {
+                    member[field] = row[field];
+                }
+            });
+        }
+
+        if (member.cuid) {
+            // Final clean: only keep defined keys to save memory
+            const cleanMember = {};
+            Object.keys(member).forEach(k => {
+                if (member[k] !== undefined && member[k] !== null && member[k] !== "") {
+                    cleanMember[k] = member[k];
+                }
+            });
+            result.push(cleanMember);
+        }
+    }
+
+    return result;
+};
+
 module.exports = {
-    processAnalysis
+    processAnalysis,
+    mapHRData
 };

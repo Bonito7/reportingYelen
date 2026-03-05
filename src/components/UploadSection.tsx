@@ -4,32 +4,27 @@ import type { HRBase, HRMember } from '../utils/excelProcessor';
 import { api } from '../services/api';
 
 interface UploadSectionProps {
-    onHRUpload: (data: any[], name: string, displayFields: { key: string; label: string }[]) => void;
     onAnalysisSuccess: (result: any) => void;
     hrBases: HRBase[];
     activeBaseId: string | null;
     onSelectBase: (id: string) => void;
     onDeleteBase: (id: string) => void;
-    onUpdateBase: (id: string, data: HRMember[], displayFields: { key: string; label: string }[]) => void;
     hrData: HRMember[] | null;
     setIsProcessing: (loading: boolean) => void;
 }
 
 export const UploadSection: React.FC<UploadSectionProps> = ({
-    onHRUpload,
     onAnalysisSuccess,
     hrBases,
     activeBaseId,
     onSelectBase,
     onDeleteBase,
-    onUpdateBase,
     hrData,
     setIsProcessing
 }) => {
     const hrInputRef = useRef<HTMLInputElement>(null);
     const visitInputRef = useRef<HTMLInputElement>(null);
     const updateInputRef = useRef<HTMLInputElement>(null);
-    const hrWorkerRef = useRef<Worker | null>(null);
 
     const [isDraggingHR, setIsDraggingHR] = useState(false);
     const [isDraggingVisits, setIsDraggingVisits] = useState(false);
@@ -38,80 +33,26 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
     const [newBaseName, setNewBaseName] = useState("");
     const [updatingBaseId, setUpdatingBaseId] = useState<string | null>(null);
 
-    // Field Selection State
-    const [showFieldSelection, setShowFieldSelection] = useState(false);
-    const [availableFields, setAvailableFields] = useState<string[]>([]);
-    const [selectedFields, setSelectedFields] = useState<string[]>([]); // Keys to keep
-    const [pendingName, setPendingName] = useState("");
-    const [isUpdateMode, setIsUpdateMode] = useState(false);
     const [isParsing, setIsParsing] = useState(false);
     const [uploadProgress, setUploadProgress] = useState("");
 
-    // Standard fields that are always selected/recommended
-    const STANDARD_FIELDS = [
-        'cuid', 'login', 'code utilisateur', 'identifiant',
-        'nom', 'prenoms', 'prénoms', 'nom_prenom', 'fullname',
-        'direction', 'dr',
-        'departement', 'département', 'dept',
-        'service', 'serv',
-        'perimetre', 'périmètre', 'perimeter', 'secteur',
-        'fonction', 'poste', 'job',
-        'ra', 'superviseur', 'supervisor', 'n+1', 'n1', 'n+2', 'n2',
-        'email', 'mail', 'adresse mail'
-    ];
 
-    const processHRFile = async (file: File, name: string, isUpdate: boolean = false) => {
+    const processHRFile = async (file: File, name: string) => {
         setIsParsing(true);
-        setUploadProgress("Initialisation...");
+        setIsProcessing(true);
+        setUploadProgress("Envoi de la base RH au serveur...");
 
-        if (hrWorkerRef.current) {
-            hrWorkerRef.current.terminate();
-        }
-
-        const worker = new Worker(new URL('../utils/processor.worker.ts', import.meta.url), { type: 'module' });
-        hrWorkerRef.current = worker;
-
-        worker.onmessage = (e) => {
-            if (e.data.type === 'PARSE_SUCCESS') {
-                const { keys, rowCount } = e.data;
-                setIsParsing(false);
-
-                if (rowCount === 0) {
-                    alert("Le fichier semble vide.");
-                    worker.terminate();
-                    hrWorkerRef.current = null;
-                    return;
-                }
-
-                setAvailableFields(keys);
-
-                const preSelected = keys.filter((key: string) =>
-                    STANDARD_FIELDS.some(std => key.toLowerCase().includes(std) || key.toLowerCase() === std)
-                );
-
-                setSelectedFields(preSelected.length > 0 ? preSelected : keys);
-                setPendingName(name);
-                setIsUpdateMode(isUpdate);
-                setShowFieldSelection(true);
-            } else if (e.data.type === 'PROGRESS') {
-                setUploadProgress(e.data.message);
-            } else if (e.data.type === 'ERROR') {
-                setIsParsing(false);
-                alert("Erreur lors de la lecture du fichier: " + e.data.error);
-                worker.terminate();
-                hrWorkerRef.current = null;
-            }
-        };
-
-        worker.onerror = (err) => {
-            console.error("Worker Error:", err);
+        try {
+            await api.uploadHRBase(file, name);
+            // After successful upload, refresh the bases list
+            window.location.reload(); // Simple way to refresh state for now
+        } catch (err: any) {
+            console.error("HR Upload Error:", err);
+            alert("Erreur lors de l'upload HR : " + (err.message || "Erreur serveur"));
+        } finally {
             setIsParsing(false);
-            alert("Impossible de démarrer le moteur d'importation.");
-            worker.terminate();
-            hrWorkerRef.current = null;
-        };
-
-        worker.postMessage({ type: 'PARSE_EXCEL', file });
+            setIsProcessing(false);
+        }
     };
 
     const processVisitsFile = async (file: File) => {
@@ -134,57 +75,6 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
             setIsParsing(false);
             setIsProcessing(false);
         }
-    };
-
-    const confirmFieldSelection = () => {
-        if (!hrWorkerRef.current) {
-            alert("Session d'importation perdue. Veuillez recommencer.");
-            setShowFieldSelection(false);
-            return;
-        }
-
-        setIsParsing(true);
-        setUploadProgress("Préparation du traitement...");
-
-        const worker = hrWorkerRef.current;
-
-        worker.onmessage = (e) => {
-            if (e.data.type === 'MAP_SUCCESS') {
-                const mappedData = e.data.mappedData;
-
-                // Create Display Fields config
-                const displayFields = selectedFields.map(key => ({
-                    key: key,
-                    label: key
-                }));
-
-                if (isUpdateMode && updatingBaseId) {
-                    onUpdateBase(updatingBaseId, mappedData, displayFields);
-                } else {
-                    onHRUpload(mappedData, pendingName, displayFields);
-                }
-
-                setIsParsing(false);
-                setShowFieldSelection(false);
-                setPendingName("");
-                if (updatingBaseId) setUpdatingBaseId(null);
-                worker.terminate();
-                hrWorkerRef.current = null;
-
-            } else if (e.data.type === 'PROGRESS') {
-                setUploadProgress(e.data.message);
-            } else if (e.data.type === 'ERROR') {
-                setIsParsing(false);
-                alert("Erreur lors du traitement: " + e.data.error);
-                worker.terminate();
-                hrWorkerRef.current = null;
-            }
-        };
-
-        worker.postMessage({
-            type: 'MAP_HR_DATA',
-            selectedFields
-        });
     };
 
     const handleUpdateClick = (e: React.MouseEvent, id: string) => {
@@ -211,7 +101,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
 
         const file = e.dataTransfer.files?.[0];
         if (file) {
-            processHRFile(file, newBaseName, false);
+            processHRFile(file, newBaseName);
         }
     };
 
@@ -303,7 +193,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
                     onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                            processHRFile(file, newBaseName, false);
+                            processHRFile(file, newBaseName);
                         }
                     }}
                 />
@@ -381,7 +271,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
             )}
 
             {/* Update Modal */}
-            {updatingBaseId && !showFieldSelection && (
+            {updatingBaseId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white border border-brand-border p-8 rounded-xl shadow-2xl max-w-lg w-full m-4 relative animate-in zoom-in-95 duration-300">
                         <button
@@ -403,7 +293,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
                                 setIsDraggingHR(false);
                                 const file = e.dataTransfer.files?.[0];
                                 if (file && updatingBaseId) {
-                                    processHRFile(file, "", true);
+                                    processHRFile(file, "");
                                 }
                             }}
                             className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all
@@ -422,7 +312,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
                             onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (file && updatingBaseId) {
-                                    processHRFile(file, "", true);
+                                    processHRFile(file, "");
                                     e.target.value = '';
                                 }
                             }}
@@ -431,63 +321,6 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
                 </div>
             )}
 
-            {/* Field Selection Modal */}
-            {showFieldSelection && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white border border-brand-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] m-4 flex flex-col animate-in slide-in-from-bottom-4 duration-300">
-                        <div className="p-8 border-b border-brand-border">
-                            <h3 className="text-xl font-bold text-text-primary mb-1">Sélection des Colonnes</h3>
-                            <p className="text-text-secondary text-sm">Choisissez les informations à afficher dans le rapport final.</p>
-                        </div>
-
-                        <div className="p-8 overflow-y-auto flex-grow custom-scrollbar bg-slate-50/30">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {availableFields.map(field => (
-                                    <label key={field} className="flex items-center gap-3 p-3.5 rounded-lg bg-white border border-brand-border hover:border-slate-300 cursor-pointer transition-all group shadow-sm">
-                                        <input
-                                            type="checkbox"
-                                            className="w-4 h-4 rounded border-slate-300 text-orange-primary focus:ring-orange-primary focus:ring-offset-0"
-                                            checked={selectedFields.includes(field)}
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    setSelectedFields(prev => [...prev, field]);
-                                                } else {
-                                                    setSelectedFields(prev => prev.filter(f => f !== field));
-                                                }
-                                            }}
-                                        />
-                                        <span className={`text-sm font-medium ${selectedFields.includes(field) ? 'text-text-primary' : 'text-text-secondary group-hover:text-text-primary'}`}>
-                                            {field}
-                                        </span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="p-6 border-t border-brand-border flex justify-end gap-3 bg-slate-50">
-                            <button
-                                onClick={() => {
-                                    if (hrWorkerRef.current) {
-                                        hrWorkerRef.current.terminate();
-                                        hrWorkerRef.current = null;
-                                    }
-                                    setShowFieldSelection(false);
-                                    setUpdatingBaseId(null);
-                                }}
-                                className="px-5 py-2 rounded-md hover:bg-slate-200 text-text-secondary hover:text-text-primary font-bold text-sm transition-all"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                onClick={confirmFieldSelection}
-                                className="btn-primary"
-                            >
-                                CONFIRMER ({selectedFields.length})
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div >
     );
 };

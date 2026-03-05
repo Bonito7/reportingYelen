@@ -1,0 +1,333 @@
+@import "tailwindcss";
+
+@theme {
+  --color-orange-primary: #FF7900;
+  --color-orange-light: #FF9933;
+  --color-orange-dark: #F16E00;
+
+  --color-brand-border: #E2E8F0;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #64748B;
+  --color-text-muted: #94A3B8;
+}
+
+/* Utilities for compatibility */
+.bg-orange-primary {
+  background-color: var(--orange-primary) !important;
+}
+
+.text-orange-primary {
+  color: var(--orange-primary) !important;
+}
+
+.border-orange-primary {
+  border-color: var(--orange-primary) !important;
+}
+
+:root {
+  --orange-primary: #FF7900;
+  --orange-light: #FF9933;
+  --orange-dark: #F16E00;
+
+  --bg-dark: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F8FAFC;
+
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+
+  --brand-border: #E2E8F0;
+  --brand-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.25rem;
+
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+  --transition-fast: 0.2s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-main);
+  line-height: 1.5;
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.glass {
+  background: var(--bg-card);
+  border: 1px solid var(--brand-border);
+  box-shadow: var(--brand-shadow);
+  border-radius: var(--radius-lg);
+  transition: var(--transition-fast);
+  padding: 0.5rem 1rem !important;
+}
+
+.glass-hover:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--orange-primary);
+}
+
+.orange-gradient {
+  background: linear-gradient(135deg, var(--orange-primary) 0%, var(--orange-dark) 100%);
+}
+
+.btn-primary {
+  background: var(--orange-primary);
+  color: #FFFFFF;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.btn-primary:hover {
+  background: var(--orange-dark);
+  color: #FFFFFF;
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.sidebar {
+  width: 280px;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  border-right: 1px solid var(--brand-border);
+  background: #FFFFFF;
+}
+
+.main-content {
+  margin-left: 280px;
+  padding: 3rem;
+  width: calc(100% - 280px);
+  max-width: 1400px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.stat-card {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #FFFFFF;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Custom Spacing Overrides */
+:root {
+  --spacing: 0.25rem;
+}
+
+.p-5 {
+  padding: 0.5rem 1rem !important;
+}
+
+.px-3 {
+  padding-inline: calc(var(--spacing) * 3);
+  padding: 0.5rem 1rem !important;
+}
+
+.p-10 {
+  padding: calc(var(--spacing) * 10);
+  padding: 0.5rem 1rem !important;
+}
+
+.left-4 {
+  left: calc(var(--spacing) * 53);
+}
+
+.pl-12 {
+  padding: 0.5rem 3rem 0.5rem 1rem !important;
+}
+
+.mb-10 {
+  margin-bottom: calc(var(--spacing) * 5) !important;
+}
+
+.bg-white.border.border-brand-border.rounded-xl.shadow-sm.overflow-hidden.flex.flex-col {
+  padding: 0.5rem 1rem !important;
+}
+
+.whitespace-nowrap {
+  white-space: normal;
+}
+
+.py-4 {
+  padding: 0.5rem 1rem !important;
+}
+
+.py-2\.5 {
+  padding-block: calc(var(--spacing) * 2.5);
+  padding: 0.5rem 1rem !important;
+}
+
+button.flex.items-center.gap-3\.5.px-3\.5.py-3.rounded-md.transition-all.duration-200.bg-orange-primary\/10.text-orange-primary.font-semibold.shadow-sm {
+  padding: 0.5rem 1rem !important;
+}
+
+header.flex.items-center.justify-between.mb-8 {
+  margin-bottom: 1rem;
+}
+
+p.text-text-secondary.text-sm {
+  margin-bottom: 0.5rem;
+}
+
+span.text-xs.font-bold.uppercase.tracking-widest {
+  padding: 0.5rem 1rem !important;
+}
+
+/* Base RH Cards - Override pour assurer la visibilité du contenu */
+.group.p-6.rounded-2xl.border.transition-all.cursor-pointer.flex.items-center.justify-between {
+  padding: 1rem !important;
+  min-height: 80px;
+}
+
+/* S'assurer que le texte dans les bases RH est visible sans casser le layout */
+.group.p-6.rounded-2xl .truncate {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 150px !important;
+}
+
+/* Base sélectionnée - Fond orange avec texte blanc */
+.border-orange-primary.bg-orange-primary.shadow-lg {
+  background-color: var(--orange-primary) !important;
+  color: white !important;
+}
+
+/* Texte blanc pour les éléments de texte sur base sélectionnée */
+.border-orange-primary.bg-orange-primary.shadow-lg .text-text-primary {
+  color: white !important;
+}
+
+.border-orange-primary.bg-orange-primary.shadow-lg .text-text-muted {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Boutons sur base sélectionnée */
+.border-orange-primary.bg-orange-primary.shadow-lg button {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+.border-orange-primary.bg-orange-primary.shadow-lg button svg {
+  color: white !important;
+}
+
+.border-orange-primary.bg-orange-primary.shadow-lg button:hover {
+  background-color: white !important;
+  border-color: white !important;
+}
+
+.border-orange-primary.bg-orange-primary.shadow-lg button:hover svg {
+  color: var(--orange-primary) !important;
+}
+
+/* Icônes des boutons visibles UNIQUEMENT sur fond orange (base sélectionnée) */
+.border-orange-primary.bg-orange-primary.shadow-lg button {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.border-orange-primary.bg-orange-primary.shadow-lg button svg {
+  color: white !important;
+}
+
+/* Hover pour les boutons sur fond orange */
+.border-orange-primary.bg-orange-primary.shadow-lg button:hover {
+  background-color: white !important;
+  border-color: white !important;
+}
+
+.border-orange-primary.bg-orange-primary.shadow-lg button:hover svg {
+  color: #FF7900 !important;
+}
+
+/* Modal et formulaire de sélection */
+.bg-white.border.border-brand-border.rounded-xl.shadow-2xl.w-full.max-w-2xl.max-h-\[80vh\].m-4.flex.flex-col.animate-in.slide-in-from-bottom-4.duration-300 {
+  padding: 0.5rem 1rem !important;
+}
+
+label.flex.items-center.gap-3.p-3\.5.rounded-lg.bg-white.border.border-brand-border.hover\:border-slate-300.cursor-pointer.transition-all.group.shadow-sm {
+  padding: 0.5rem 1rem !important;
+}
+
+.p-6.border-t.border-brand-border.flex.justify-end.gap-3.bg-slate-50 {
+  padding: 0.5rem 0rem !important;
+}
+
+/* Modale de mise à jour de base */
+.bg-white.border.border-brand-border.p-8.rounded-xl.shadow-2xl.max-w-lg.w-full.m-4.relative.animate-in.zoom-in-95.duration-300 {
+  padding: 0.5rem 1rem !important;
+}
+
+/* Container Overrides - Better Spacing */
+.glass {
+  padding: 1.5rem 2rem !important;
+}
+
+.main-content {
+  padding: 2.5rem 3rem !important;
+}
+
+/* Modals */
+.bg-white.border.border-brand-border.rounded-xl.shadow-2xl.w-full.max-w-2xl {
+  padding: 0 !important;
+  /* Layout handled by inner containers */
+}
+
+/* Fin index.css */

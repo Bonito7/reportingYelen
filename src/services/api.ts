@@ -1,0 +1,45 @@
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+
+export const api = {
+    // HR Bases
+    getAllHRBases: async () => {
+        const res = await fetch(`${API_URL}/hr-bases`);
+        if (!res.ok) throw new Error('Failed to fetch HR bases');
+        return res.json();
+    },
+
+    syncHRBases: async (bases: any[]) => {
+        const res = await fetch(`${API_URL}/hr-bases/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bases })
+        });
+        if (!res.ok) throw new Error('Failed to sync HR bases');
+        return res.json();
+    },
+
+    // App State / Visit Data
+    getState: async (key: string) => {
+        const res = await fetch(`${API_URL}/state/${key}`);
+        if (!res.ok) throw new Error('Failed to fetch state');
+        return res.json();
+    },
+
+    updateState: async (key: string, value: any) => {
+        const res = await fetch(`${API_URL}/state/${key}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value })
+        });
+        if (!res.ok) throw new Error('Failed to update state');
+        return res.json();
+    },
+
+    clearState: async (key: string) => {
+        const res = await fetch(`${API_URL}/state/${key}`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('Failed to clear state');
+        return res.json();
+    }
+};
